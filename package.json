@@ -4,10 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "music:generate": "node scripts/generate-music.mjs",
-    "predev": "npm run music:generate",
     "dev": "vite",
-    "prebuild": "npm run music:generate",
     "build": "vite build",
     "preview": "vite preview"
   },
