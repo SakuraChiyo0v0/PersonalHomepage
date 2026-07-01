@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'; import Cms from './Cms'
 import { ArrowDownRight, ArrowUpRight, ExternalLink, Gamepad2, Github, Mail, Map, Pause, Play, SkipBack, SkipForward, Sparkles, Terminal, Users, Volume2 } from 'lucide-react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -255,6 +255,18 @@ function Contact() {
 
 export default function App() {
   const root = useRef(null)
+  const [isCms, setIsCms] = useState(window.location.pathname === '/cms')
+
+  useEffect(() => {
+    const handlePopstate = () => setIsCms(window.location.pathname === '/cms')
+    window.addEventListener('popstate', handlePopstate)
+    return () => window.removeEventListener('popstate', handlePopstate)
+  }, [])
+
+  if (isCms) {
+    return <Cms />
+  }
+
   useGSAP(() => {
     const mm = gsap.matchMedia()
     mm.add({ desktop: '(min-width: 900px)', reduce: '(prefers-reduced-motion: reduce)' }, ({ conditions }) => {
