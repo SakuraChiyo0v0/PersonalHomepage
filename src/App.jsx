@@ -3,7 +3,7 @@ import { ArrowDownRight, ArrowUpRight, Camera, ExternalLink, Gamepad2, Github, M
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useGSAP } from '@gsap/react'
-import { logs, projects } from './data'
+import { getSocialAvatars, logs, projects } from './data'
 import { tracks } from './music.generated'
 
 gsap.registerPlugin(useGSAP, ScrollTrigger)
@@ -19,6 +19,7 @@ function Header() {
 }
 
 function SocialCardStack() {
+  const avatars = getSocialAvatars()
   const [github, setGithub] = useState({ avatar: '', repos: '—', followers: '—', latest: 'loading…' })
   const [order, setOrder] = useState(['vrchat', 'steam', 'github'])
   const stackRef = useRef(null)
@@ -78,19 +79,19 @@ function SocialCardStack() {
   return <div ref={stackRef} className="social-stack is-deck" aria-label="我的社交平台卡组">
     <article className="social-card vrc-social" {...cardProps('vrchat')}>
       <div className="social-card-head"><span><Sparkles size={14}/> VRCHAT</span><small>PROFILE_01</small></div>
-      <div className="social-main"><div className="platform-avatar vrc-avatar">SC</div><div><strong>SakuraChiyo</strong><p><i className="status-dot"/> wandering somewhere quiet</p></div></div>
+      <div className="social-main"><img className="platform-avatar" src={avatars.vrchat} alt="VRChat avatar" /><div><strong>SakuraChiyo</strong><p><i className="status-dot"/> wandering somewhere quiet</p></div></div>
       <div className="social-stats"><span><small>MOOD</small>Take it easy</span><span><small>WORLD</small>Private / Ask me</span></div>
       <a className="social-visit" href="https://vrchat.com/home/user/usr_be86c970-b8be-4953-8d06-b34be669e566" target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()}>VISIT PROFILE <ExternalLink size={13}/></a>
     </article>
     <article className="social-card steam-social" {...cardProps('steam')}>
       <div className="social-card-head"><span><Gamepad2 size={14}/> STEAM</span><small>PLAYER_02</small></div>
-      <div className="social-main"><div className="game-cover"><span>PLAY</span></div><div><strong>SakuraChiyo</strong><p><i className="status-dot steam-dot"/> library ready</p></div></div>
+      <div className="social-main"><img className="game-cover" src={avatars.steam} alt="Steam avatar" /><div><strong>SakuraChiyo</strong><p><i className="status-dot steam-dot"/> library ready</p></div></div>
       <div className="social-stats"><span><small>RECENTLY</small>Waiting to sync</span><span><small>STATUS</small>Static preview</span></div>
       <a className="social-visit" href="https://steamcommunity.com/profiles/76561199038682501/" target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()}>VISIT PROFILE <ExternalLink size={13}/></a>
     </article>
     <article className="social-card github-social" {...cardProps('github')}>
       <div className="social-card-head"><span><Github size={14}/> GITHUB</span><small>PUBLIC_API</small></div>
-      <div className="social-main">{github.avatar ? <img className="platform-avatar" src={github.avatar} alt="SakuraChiyo0v0 GitHub 头像"/> : <div className="platform-avatar github-avatar"><Github/></div>}<div><strong>SakuraChiyo0v0</strong><p>latest / {github.latest}</p></div></div>
+      <div className="social-main"><img className="platform-avatar" src={github.avatar || avatars.github} alt="SakuraChiyo0v0 GitHub avatar" /><div><strong>SakuraChiyo0v0</strong><p>latest / {github.latest}</p></div></div>
       <div className="social-stats"><span><small>REPOS</small>{github.repos}</span><span><small>FOLLOWERS</small>{github.followers}</span><div className="commit-dots" aria-label="装饰性贡献热度">{[1,2,3,2,4,1,3,4,2,3,1,4].map((n,i)=><i key={i} data-level={n}/>)}</div></div>
       <a className="social-visit" href="https://github.com/SakuraChiyo0v0" target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()}>VISIT PROFILE <ExternalLink size={13}/></a>
     </article>
