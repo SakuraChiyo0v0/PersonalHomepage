@@ -10,12 +10,14 @@ export const logs = [
   { time: 'ALWAYS', title: 'Learning by making', text: '偏爱把刚学会的东西，变成看得见、摸得着、会回应的小玩意。' },
 ]
 
-// -- Mock avatar data ------------------------------------------------
-// 上线时替换为真实数据源（API / CMS / 本地资源）
+// -- Avatar 数据，Steam 头像优先用社区 API 返回的 URL ---------------------
+// Steam: https://avatars.fastly.steamstatic.com/18ef0d03b4f3cce930e247680dfb868128c34d17.jpg
+// GitHub: 由 API 动态获取
+// VRChat: 暂缺（需认证），使用占位
 export function getSocialAvatars() {
   return {
     vrchat: '/images/avatar-vrchat.png',
     steam: '/images/avatar-steam.png',
-    github: '/images/avatar-github.png',
+    github: '/images/avatar-github.jpg',
   }
 }

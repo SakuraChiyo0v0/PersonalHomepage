@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, Camera, ExternalLink, Gamepad2, Github, Mail, Map, Pause, Play, SkipBack, SkipForward, Sparkles, Terminal, Users, Volume2 } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, ExternalLink, Gamepad2, Github, Mail, Map, Pause, Play, SkipBack, SkipForward, Sparkles, Terminal, Users, Volume2 } from 'lucide-react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useGSAP } from '@gsap/react'
 import { getSocialAvatars, logs, projects } from './data'
 import { tracks } from './music.generated'
+import { steamProfile as staticSteam } from './steam.generated'
+import { fetchGitHubContributions } from './api'
 
 gsap.registerPlugin(useGSAP, ScrollTrigger)
 
@@ -21,23 +23,27 @@ function Header() {
 function SocialCardStack() {
   const avatars = getSocialAvatars()
   const [github, setGithub] = useState({ avatar: '', repos: '—', followers: '—', latest: 'loading…' })
+  const [steamProfile] = useState(staticSteam)
+  const [contribDots, setContribDots] = useState([1,2,3,2,4,1,3,4,2,3,1,4])
   const [order, setOrder] = useState(['vrchat', 'steam', 'github'])
   const stackRef = useRef(null)
   const cardRefs = useRef({})
   const animating = useRef(false)
 
   const positions = [
-    { x: 0, y: 0, scale: 1, rotation: 0, zIndex: 5 },
-    { x: -48, y: 158, scale: .92, rotation: -4, zIndex: 3 },
-    { x: 52, y: 194, scale: .86, rotation: 5, zIndex: 2 },
+    { x: 75, y: 180, scale: 1.2, rotation: -1, zIndex: 5 },
+    { x: 60, y: 0, scale: .88, rotation: 2.5, zIndex: 2 },
+    { x: 65, y: 370, scale: .88, rotation: -7, zIndex: 1 },
   ]
 
   useEffect(() => {
     const controller = new AbortController()
     Promise.all([
-      fetch('https://api.github.com/users/SakuraChiyo0v0', { signal: controller.signal }).then(r => r.ok ? r.json() : Promise.reject()),
-      fetch('https://api.github.com/users/SakuraChiyo0v0/repos?sort=updated&per_page=1', { signal: controller.signal }).then(r => r.ok ? r.json() : Promise.reject()),
+      fetch(`https://api.github.com/users/${'SakuraChiyo0v0'}`, { signal: controller.signal }).then(r => r.ok ? r.json() : Promise.reject()),
+      fetch(`https://api.github.com/users/${'SakuraChiyo0v0'}/repos?sort=updated&per_page=1`, { signal: controller.signal }).then(r => r.ok ? r.json() : Promise.reject()),
     ]).then(([user, repos]) => setGithub({ avatar: user.avatar_url, repos: user.public_repos, followers: user.followers, latest: repos[0]?.name || 'quietly building' })).catch(() => {})
+    // 真实贡献数据
+    fetchGitHubContributions().then((dots) => dots.length && setContribDots(dots))
     return () => controller.abort()
   }, [])
 
@@ -56,11 +62,14 @@ function SocialCardStack() {
     }
     animating.current = true
     const selected = cardRefs.current[id]
-    const side = index === 1 ? -130 : 130
-    const timeline = gsap.timeline({ onComplete: () => { setOrder(nextOrder); animating.current = false } })
-    timeline.to(selected, { x: side, y: 92, scale: .95, rotation: side < 0 ? -7 : 7, duration: .2, ease: 'power2.in' })
+    const sideX = index === 1 ? -80 : 200
+    const sideRotation = index === 1 ? -8 : 8
+    const tl = gsap.timeline({ onComplete: () => { setOrder(nextOrder); animating.current = false } })
+    // 侧向抽出
+    tl.to(selected, { x: sideX, y: 140, scale: .95, rotation: sideRotation, duration: .22, ease: 'power2.in' })
       .set(selected, { zIndex: 7 })
-    nextOrder.forEach((cardId, position) => timeline.to(cardRefs.current[cardId], { ...positions[position], duration: .48, ease: 'power3.out' }, position === 0 ? '>-0.02' : '<'))
+    // 所有卡片弧线归位
+    nextOrder.forEach((cardId, position) => tl.to(cardRefs.current[cardId], { ...positions[position], duration: .43, ease: 'power3.out' }, position === 0 ? '>-0.03' : '<'))
   }
 
   const onCardKeyDown = (event, id) => {
@@ -81,19 +90,29 @@ function SocialCardStack() {
       <div className="social-card-head"><span><Sparkles size={14}/> VRCHAT</span><small>PROFILE_01</small></div>
       <div className="social-main"><img className="platform-avatar" src={avatars.vrchat} alt="VRChat avatar" /><div><strong>SakuraChiyo</strong><p><i className="status-dot"/> wandering somewhere quiet</p></div></div>
       <div className="social-stats"><span><small>MOOD</small>Take it easy</span><span><small>WORLD</small>Private / Ask me</span></div>
-      <a className="social-visit" href="https://vrchat.com/home/user/usr_be86c970-b8be-4953-8d06-b34be669e566" target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()}>VISIT PROFILE <ExternalLink size={13}/></a>
+      <a className="social-visit" href="https://vrchat.com/home/user/usr_be86c970-b8be-4953-8d06-b34be669e566" target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()} aria-label="访问VRChat主页"><ExternalLink size={16}/></a>
     </article>
     <article className="social-card steam-social" {...cardProps('steam')}>
-      <div className="social-card-head"><span><Gamepad2 size={14}/> STEAM</span><small>PLAYER_02</small></div>
-      <div className="social-main"><img className="game-cover" src={avatars.steam} alt="Steam avatar" /><div><strong>SakuraChiyo</strong><p><i className="status-dot steam-dot"/> library ready</p></div></div>
-      <div className="social-stats"><span><small>RECENTLY</small>Waiting to sync</span><span><small>STATUS</small>Static preview</span></div>
-      <a className="social-visit" href="https://steamcommunity.com/profiles/76561199038682501/" target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()}>VISIT PROFILE <ExternalLink size={13}/></a>
+      <div className="social-card-head"><span><Gamepad2 size={14}/> STEAM</span><small>{steamProfile?.memberSince ? `SINCE ${steamProfile.memberSince.split(',')[1]?.trim() || steamProfile.memberSince}` : 'PLAYER_02'}</small></div>
+      <div className="social-main">
+        <img className="game-cover" src={avatars.steam} alt="Steam avatar"
+          onError={(e) => { e.target.src = avatars.steam }} />
+        <div><strong>SakuraChiyo</strong><p>
+          <i className="status-dot"/>
+          Online
+        </p></div>
+      </div>
+      <div className="social-stats">
+        <span><small>RECENTLY</small>{steamProfile?.games?.[0] ? `${steamProfile.games[0].name} · ${steamProfile.games[0].hoursTotal.toFixed(0)}h` : 'Waiting to sync'}</span>
+        <span><small>ALSO</small>{steamProfile?.games?.[1] ? `${steamProfile.games[1].name} · ${steamProfile.games[1].hoursTotal.toFixed(0)}h` : 'Static preview'}</span>
+      </div>
+      <a className="social-visit" href="https://steamcommunity.com/profiles/76561199038682501/" target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()} aria-label="访问Steam主页"><ExternalLink size={16}/></a>
     </article>
     <article className="social-card github-social" {...cardProps('github')}>
       <div className="social-card-head"><span><Github size={14}/> GITHUB</span><small>PUBLIC_API</small></div>
-      <div className="social-main"><img className="platform-avatar" src={github.avatar || avatars.github} alt="SakuraChiyo0v0 GitHub avatar" /><div><strong>SakuraChiyo0v0</strong><p>latest / {github.latest}</p></div></div>
-      <div className="social-stats"><span><small>REPOS</small>{github.repos}</span><span><small>FOLLOWERS</small>{github.followers}</span><div className="commit-dots" aria-label="装饰性贡献热度">{[1,2,3,2,4,1,3,4,2,3,1,4].map((n,i)=><i key={i} data-level={n}/>)}</div></div>
-      <a className="social-visit" href="https://github.com/SakuraChiyo0v0" target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()}>VISIT PROFILE <ExternalLink size={13}/></a>
+      <div className="social-main"><img className="platform-avatar" src={avatars.github} alt="SakuraChiyo0v0 GitHub avatar" /><div><strong>SakuraChiyo0v0</strong><p>latest / {github.latest}</p></div></div>
+      <div className="social-stats"><span><small>REPOS</small>{github.repos}</span><span><small>FOLLOWERS</small>{github.followers}</span><div className="commit-dots" aria-label="近12周GitHub贡献热度">{contribDots.map((n,i)=><i key={i} data-level={n}/>)}</div></div>
+      <a className="social-visit" href="https://github.com/SakuraChiyo0v0" target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()} aria-label="访问GitHub主页"><ExternalLink size={16}/></a>
     </article>
   </div>
 }
@@ -173,7 +192,7 @@ function Hero() {
         <a className="text-link" href="#work">VIEW MY WORK <ArrowUpRight size={15}/></a>
       </div>
     </div>
-    <div className="hero-visual hero-reveal"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><SocialCardStack/></div>
+    <div className="hero-visual hero-reveal"><SocialCardStack/></div>
     <div className="terminal-bar hero-reveal"><span className="terminal-avatar">SC</span><span className="prompt">sakura@home:~$</span><span className="typed">take it easy --stay curious</span><span className="cursor" aria-hidden="true"/></div>
     <div className="scroll-note">SCROLL TO EXPLORE <ArrowDownRight size={14}/></div>
   </section>
