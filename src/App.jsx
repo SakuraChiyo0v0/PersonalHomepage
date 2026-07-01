@@ -6,6 +6,7 @@ import { useGSAP } from '@gsap/react'
 import { getSocialAvatars, logs, projects } from './data'
 import { tracks } from './music.generated'
 import { fetchSocialStatus } from './api'
+import IntroSequence from './IntroSequence'
 
 gsap.registerPlugin(useGSAP, ScrollTrigger)
 
@@ -345,5 +346,5 @@ export default function App() {
     return () => mm.revert()
   }, { scope: root })
 
-  return <div ref={root}><a className="skip-link" href="#about">跳到主要内容</a><Header/><MusicPlayer/><main><Hero /><Identity/><Projects/><LifeLog/><Memories/></main><Contact/></div>
+  return <div ref={root}><IntroSequence/><a className="skip-link" href="#about">跳到主要内容</a><Header/><MusicPlayer/><main><Hero /><Identity/><Projects/><LifeLog/><Memories/></main><Contact/></div>
 }
