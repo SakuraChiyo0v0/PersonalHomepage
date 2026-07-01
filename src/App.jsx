@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'; import Cms from './Cms'
-import { ArrowDownRight, ArrowUpRight, ExternalLink, Gamepad2, Github, Mail, Map, Pause, Play, SkipBack, SkipForward, Sparkles, Terminal, Users, Volume2 } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, ExternalLink, Gamepad2, Github, Map, Pause, Play, SkipBack, SkipForward, Sparkles, Terminal, Users, Volume2 } from 'lucide-react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useGSAP } from '@gsap/react'
 import { getSocialAvatars, logs, projects } from './data'
 import { tracks } from './music.generated'
 import { fetchSocialStatus } from './api'
+import IntroSequence from './IntroSequence'
 
 gsap.registerPlugin(useGSAP, ScrollTrigger)
 
@@ -23,7 +24,7 @@ function SocialCardStack() {
   const avatars = getSocialAvatars()
   const [github, setGithub] = useState({ avatar: '', repos: '—', followers: '—', latest: 'loading…' })
   const [steamProfile, setSteamProfile] = useState(null)
-  const [contribDots, setContribDots] = useState([1,2,3,2,4,1,3,4,2,3,1,4])
+  const [contribDots, setContribDots] = useState([1,2,3,4,2,3,1,2,3,4,2,1])
   const [vrcStatus, setVrcStatus] = useState({ logged_in: false, user: null })
   const [order, setOrder] = useState(['vrchat', 'steam', 'github'])
   const stackRef = useRef(null)
@@ -311,7 +312,7 @@ function Memories() {
 function Contact() {
   return <footer className="contact" id="contact"><div className="contact-grid" aria-hidden="true"/>
     <p className="eyebrow single reveal">LET'S CONNECT</p><h2 className="reveal">Meet me<br/><span>somewhere.</span></h2><p className="contact-copy reveal">如果你觉得这里有一点熟悉，或者只是想找个人聊聊天、一起散步——都欢迎来打个招呼。</p>
-    <div className="contact-links reveal"><a className="magnetic" href="https://github.com/" target="_blank" rel="noreferrer"><Github/> GITHUB <ArrowUpRight/></a><a className="magnetic" href="https://vrchat.com/" target="_blank" rel="noreferrer"><Sparkles/> VRCHAT <ArrowUpRight/></a><a className="magnetic" href="mailto:hello@example.com"><Mail/> EMAIL <ArrowUpRight/></a></div>
+    <div className="contact-links reveal"><a className="magnetic" href="https://github.com/SakuraChiyo0v0" target="_blank" rel="noreferrer"><Github/> GITHUB <ArrowUpRight/></a><a className="magnetic" href="https://vrchat.com/home/user/usr_be86c970-b8be-4953-8d06-b34be669e566" target="_blank" rel="noreferrer"><Sparkles/> VRCHAT <ArrowUpRight/></a><a className="magnetic" href="https://steamcommunity.com/profiles/76561199038682501/" target="_blank" rel="noreferrer"><Gamepad2/> STEAM <ArrowUpRight/></a></div>
     <div className="footer-line"><span>© 2026 SAKURACHIYO</span><span>MADE SLOWLY, WITH SOFT THOUGHTS</span><a href="#top">BACK TO TOP ↑</a></div>
   </footer>
 }
@@ -319,6 +320,16 @@ function Contact() {
 export default function App() {
   const root = useRef(null)
   const [isCms, setIsCms] = useState(window.location.pathname === '/cms')
+  const [introEnabled, setIntroEnabled] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/social/config')
+      .then(r => r.json())
+      .then(data => {
+        if (typeof data.intro_enabled === 'boolean') setIntroEnabled(data.intro_enabled)
+      })
+      .catch(e => console.warn('[Intro] fetch failed:', e))
+  }, [])
 
   useEffect(() => {
     const handlePopstate = () => setIsCms(window.location.pathname === '/cms')
@@ -345,5 +356,5 @@ export default function App() {
     return () => mm.revert()
   }, { scope: root })
 
-  return <div ref={root}><a className="skip-link" href="#about">跳到主要内容</a><Header/><MusicPlayer/><main><Hero /><Identity/><Projects/><LifeLog/><Memories/></main><Contact/></div>
+  return <div ref={root}>{introEnabled && <IntroSequence/>}<a className="skip-link" href="#about">跳到主要内容</a><Header/><MusicPlayer/><main><Hero /><Identity/><Projects/><LifeLog/><Memories/></main><Contact/></div>
 }
