@@ -5,7 +5,7 @@ const API = '/api/social'
 
 export default function SocialSettings() {
   const [dashboard, setDashboard] = useState(null)
-  const [settings, setSettings] = useState({ vrchat: 60, github: 120, steam: 300 })
+  const [settings, setSettings] = useState({ vrchat: 60, github: 120, steam: 300, intro_enabled: true })
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const [countdowns, setCountdowns] = useState({ vrchat: 0, github: 0, steam: 0 })
@@ -17,7 +17,16 @@ export default function SocialSettings() {
       .then(r => r.json())
       .then(data => {
         setDashboard(data)
-        setSettings(data.intervals || settings)
+        const s = data.intervals || settings
+        setSettings(s)
+        // 如果 intervals 没有 intro_enabled，从 config 补读
+        if (s.intro_enabled === undefined) {
+          fetch(`${API}/config`).then(r => r.json()).then(cfg => {
+            if (typeof cfg.intro_enabled === 'boolean') {
+              setSettings(prev => ({ ...prev, intro_enabled: cfg.intro_enabled }))
+            }
+          }).catch(() => {})
+        }
         setCountdowns({
           vrchat: data.vrchat?.next_in ?? 0,
           github: data.github?.next_in ?? 0,
@@ -57,6 +66,12 @@ export default function SocialSettings() {
       })
       if (res.ok) {
         setMsg('已保存')
+        // 同步保存 intro_enabled 到应用配置
+        fetch(`${API}/config`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ intro_enabled: settings.intro_enabled }),
+        }).catch(() => {})
         fetchDashboard()
       } else {
         setMsg('保存失败')
@@ -318,14 +333,14 @@ export default function SocialSettings() {
   }
 
   return (
-    <div>
+    <div className="social-settings-wrap">
       {/* ── 三列平台卡片 ── */}
       <div className="social-dashboard-grid">
         {platformMeta.map(renderPlatformCard)}
       </div>
 
       {/* ── 刷新间隔设置 ── */}
-      <div className="cms-card" style={{ marginTop: 20 }}>
+      <div className="cms-card" style={{ marginTop: 20, position: 'relative', zIndex: 1 }}>
         <div className="cms-card-header">
           <Clock size={16} style={{ color: 'var(--ink)' }} />
           <span style={{ fontWeight: 600 }}>刷新间隔</span>
@@ -379,6 +394,24 @@ export default function SocialSettings() {
               </div>
             </div>
           ))}
+          {/* ── 全屏开场动画 ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }}>
+            <span style={{ fontSize: 18 }}>🎬</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>全屏开场动画</span>
+                <span style={{ color: 'var(--muted)', fontSize: 10 }}>进入网站时播放图片序列动画</span>
+              </div>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={settings.intro_enabled}
+                onChange={(e) => setSettings({ ...settings, intro_enabled: e.target.checked })}
+                style={{ width: 16, height: 16, accentColor: 'var(--ink)' }}
+              />
+            </label>
+          </div>
 
           {msg && (
             <p style={{
@@ -403,10 +436,15 @@ export default function SocialSettings() {
 
       {/* ── 卡片样式 ── */}
       <style>{`
+        .social-settings-wrap {
+          position: relative;
+          z-index: 1;
+        }
         .social-dashboard-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 16px;
+          position: relative;
         }
         @media (max-width: 900px) {
           .social-dashboard-grid { grid-template-columns: 1fr; }
@@ -417,6 +455,7 @@ export default function SocialSettings() {
           border-left: 3px solid;
           border-radius: 12px;
           overflow: hidden;
+          position: relative;
         }
         .social-card-header {
           display: flex;
@@ -425,10 +464,14 @@ export default function SocialSettings() {
           padding: 12px 16px;
           border-bottom: 1px solid var(--line);
           background: var(--paper);
+          position: relative;
+          z-index: 1;
         }
         .social-card-body {
           padding: 16px;
           background: var(--paper2);
+          position: relative;
+          z-index: 1;
         }
         .social-card-footer {
           display: flex;
@@ -437,6 +480,8 @@ export default function SocialSettings() {
           padding: 8px 16px;
           border-top: 1px solid var(--line);
           background: var(--paper);
+          position: relative;
+          z-index: 1;
         }
         @keyframes spin {
           from { transform: rotate(0deg); }

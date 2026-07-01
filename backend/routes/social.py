@@ -34,6 +34,7 @@ class SocialIntervalSettings(BaseModel):
     vrchat: int = Field(default=60, ge=10, le=3600, description="VRChat 刷新间隔（秒）")
     github: int = Field(default=120, ge=30, le=86400, description="GitHub 刷新间隔（秒）")
     steam: int = Field(default=300, ge=30, le=86400, description="Steam 刷新间隔（秒）")
+    intro_enabled: bool = Field(default=True, description="是否启用全屏开场动画")
 
 _default_settings = SocialIntervalSettings()
 
@@ -198,8 +199,8 @@ async def _fetch_vrchat():
         client = get_vrchat_client()
         if not client._auth_cookie:
             return {"logged_in": False}
-        if not client._current_user:
-            await client.get_current_user()
+        # Always fetch fresh user data to catch world changes
+        await client.get_current_user()
         user = client._current_user
         if not user:
             return {"logged_in": False}
@@ -320,6 +321,41 @@ async def update_settings(new_settings: SocialIntervalSettings):
         return {"success": True, "intervals": new_settings.model_dump()}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── 应用配置（无需模型校验，纯 JSON 读写） ──
+
+APP_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "app_config.json")
+
+
+def _load_app_config() -> dict:
+    try:
+        if os.path.exists(APP_CONFIG_FILE):
+            with open(APP_CONFIG_FILE, "r") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {"intro_enabled": True}
+
+
+def _save_app_config(cfg: dict):
+    os.makedirs(os.path.dirname(APP_CONFIG_FILE), exist_ok=True)
+    with open(APP_CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2)
+
+
+@router.get("/config")
+async def get_app_config():
+    return _load_app_config()
+
+
+@router.put("/config")
+async def update_app_config(data: dict):
+    cfg = _load_app_config()
+    if "intro_enabled" in data:
+        cfg["intro_enabled"] = bool(data["intro_enabled"])
+    _save_app_config(cfg)
+    return {"success": True, "config": cfg}
 
 
 @router.get("/dashboard")
