@@ -17,6 +17,15 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Next.js
+.next/
+
+# Python cache
+__pycache__/
+
+# Sensitive data
+backend/data/*.json
+
 # Internal tool state
 .superpowers/
 .workbuddy/

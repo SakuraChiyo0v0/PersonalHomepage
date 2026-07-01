@@ -5,8 +5,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useGSAP } from '@gsap/react'
 import { getSocialAvatars, logs, projects } from './data'
 import { tracks } from './music.generated'
-import { steamProfile as staticSteam } from './steam.generated'
-import { fetchGitHubContributions } from './api'
+import { fetchSocialStatus } from './api'
 
 gsap.registerPlugin(useGSAP, ScrollTrigger)
 
@@ -23,8 +22,9 @@ function Header() {
 function SocialCardStack() {
   const avatars = getSocialAvatars()
   const [github, setGithub] = useState({ avatar: '', repos: '—', followers: '—', latest: 'loading…' })
-  const [steamProfile] = useState(staticSteam)
+  const [steamProfile, setSteamProfile] = useState(null)
   const [contribDots, setContribDots] = useState([1,2,3,2,4,1,3,4,2,3,1,4])
+  const [vrcStatus, setVrcStatus] = useState({ logged_in: false, user: null })
   const [order, setOrder] = useState(['vrchat', 'steam', 'github'])
   const stackRef = useRef(null)
   const cardRefs = useRef({})
@@ -38,12 +38,15 @@ function SocialCardStack() {
 
   useEffect(() => {
     const controller = new AbortController()
-    Promise.all([
-      fetch(`https://api.github.com/users/${'SakuraChiyo0v0'}`, { signal: controller.signal }).then(r => r.ok ? r.json() : Promise.reject()),
-      fetch(`https://api.github.com/users/${'SakuraChiyo0v0'}/repos?sort=updated&per_page=1`, { signal: controller.signal }).then(r => r.ok ? r.json() : Promise.reject()),
-    ]).then(([user, repos]) => setGithub({ avatar: user.avatar_url, repos: user.public_repos, followers: user.followers, latest: repos[0]?.name || 'quietly building' })).catch(() => {})
-    // 真实贡献数据
-    fetchGitHubContributions().then((dots) => dots.length && setContribDots(dots))
+    // 统一从后端获取所有社交数据
+    fetchSocialStatus().then(data => {
+      if (data.github && Object.keys(data.github).length) {
+        setGithub(data.github)
+        if (data.github.contribDots?.length) setContribDots(data.github.contribDots)
+      }
+      if (data.steam && Object.keys(data.steam).length) setSteamProfile(data.steam)
+      if (data.vrchat) setVrcStatus(data.vrchat)
+    }).catch(() => {})
     return () => controller.abort()
   }, [])
 
@@ -85,21 +88,81 @@ function SocialCardStack() {
     onKeyDown: (event) => onCardKeyDown(event, id),
   })
 
+  const getVRCStatusColor = (user) => {
+    // VRCX's statusClass(status) — for current user, maps user.status to CSS class
+    const v_status = (user?.status || '').toLowerCase()
+    const v_state = (user?.state || 'offline').toLowerCase()
+
+    // status 'active' → online green (VRCX maps 'active' status → 'online' class)
+    if (v_status === 'active') return { color: '#2ed319', label: 'Online', hollow: false, fill: true }
+    if (v_status === 'join me') return { color: '#00b8ff', label: 'Join Me', hollow: false, fill: true }
+    if (v_status === 'ask me') return { color: '#e97c03', label: 'Ask Me', hollow: false, fill: true }
+    if (v_status === 'busy' || v_status === 'do not disturb') return { color: '#c80928', label: 'Busy', hollow: false, fill: true }
+
+    // No recognizable status → fallback to state
+    if (v_state === 'active') return { color: '#2ed319', label: 'Active', hollow: true, fill: false }
+    if (v_state === 'online') return { color: '#2ed319', label: 'Online', hollow: false, fill: true }
+    return { color: '#737f8d', label: 'Offline', hollow: false, fill: true }
+  }
+
   return <div ref={stackRef} className="social-stack is-deck" aria-label="我的社交平台卡组">
     <article className="social-card vrc-social" {...cardProps('vrchat')}>
-      <div className="social-card-head"><span><Sparkles size={14}/> VRCHAT</span><small>PROFILE_01</small></div>
-      <div className="social-main"><img className="platform-avatar" src={avatars.vrchat} alt="VRChat avatar" /><div><strong>SakuraChiyo</strong><p><i className="status-dot"/> wandering somewhere quiet</p></div></div>
-      <div className="social-stats"><span><small>MOOD</small>Take it easy</span><span><small>WORLD</small>Private / Ask me</span></div>
+      {vrcStatus.logged_in && vrcStatus.user ? (() => {
+        const sc = getVRCStatusColor(vrcStatus.user)
+        const desc = vrcStatus.user.statusDescription
+        return (<>
+          <div className="social-card-head"><span><Sparkles size={14}/> VRCHAT</span><small style={{ color: sc.color }}>{sc.label.toUpperCase()}</small></div>
+          <div className="social-main">
+            <img className="platform-avatar" src={vrcStatus.user.userIcon || vrcStatus.user.currentAvatarThumbnailImageUrl || avatars.vrchat} alt="VRChat avatar"
+              onError={(e) => { e.target.src = avatars.vrchat }} />
+            <div>
+              <strong>{vrcStatus.user.displayName}</strong>
+              <p>
+                <i className="status-dot" style={sc.fill
+                  ? { background: sc.color, boxShadow: `0 0 0 4px ${sc.color}18` }
+                  : { background: 'transparent', border: `2px solid ${sc.color}`, boxShadow: `0 0 0 2px ${sc.color}18` }
+                } />{desc || sc.label}
+              </p>
+            </div>
+          </div>
+          <div className="social-stats">
+            {(vrcStatus.current_world && !['Ask Me', 'Busy'].includes(sc.label)) ? (() => {
+              const w = vrcStatus.current_world
+              const at = w.access_type || 'public'
+              const atLabel = { 'public': 'Public', 'friends+': 'Friends+', 'friends': 'Friends', 'invite+': 'Invite+', 'invite': 'Invite', 'private': 'Private', 'group': 'Group' }[at] || at
+              return (<>
+                <span>
+                  <small>WORLD</small>{w.name}
+                  <small style={{ marginTop: 4 }}>{w.authorName ? `BY ${w.authorName}` : ''}</small>
+                </span>
+                <span>
+                  <small>PLAYERS</small>{(w.n_users ?? w.occupants ?? '-')}/{(w.instance_capacity ?? w.capacity ?? '-')}
+                  <small style={{ marginTop: 4 }}>{atLabel}</small>
+                </span>
+              </>)})() : (
+              <>
+                <span><small>WORLD</small>—</span>
+                <span><small>PLAYERS</small>—</span>
+              </>
+            )}
+          </div>
+        </>)})() : (
+        <>
+          <div className="social-card-head"><span><Sparkles size={14}/> VRCHAT</span><small style={{ color: '#888' }}>OFFLINE</small></div>
+          <div className="social-main"><img className="platform-avatar" src={avatars.vrchat} alt="VRChat avatar" /><div><strong>SakuraChiyo</strong><p><i className="status-dot" style={{ background: '#b5b0ab', boxShadow: '0 0 0 3px #b5b0ab14' }} /> Offline</p></div></div>
+          <div className="social-stats"><span><small>WORLD</small>—</span><span><small>PLAYERS</small>—</span></div>
+        </>
+      )}
       <a className="social-visit" href="https://vrchat.com/home/user/usr_be86c970-b8be-4953-8d06-b34be669e566" target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()} aria-label="访问VRChat主页"><ExternalLink size={16}/></a>
     </article>
     <article className="social-card steam-social" {...cardProps('steam')}>
       <div className="social-card-head"><span><Gamepad2 size={14}/> STEAM</span><small>{steamProfile?.memberSince ? `SINCE ${steamProfile.memberSince.split(',')[1]?.trim() || steamProfile.memberSince}` : 'PLAYER_02'}</small></div>
       <div className="social-main">
-        <img className="game-cover" src={avatars.steam} alt="Steam avatar"
+        <img className="game-cover" src={steamProfile?.avatarMedium || avatars.steam} alt="Steam avatar"
           onError={(e) => { e.target.src = avatars.steam }} />
-        <div><strong>SakuraChiyo</strong><p>
+        <div><strong>{steamProfile?.name || 'SakuraChiyo'}</strong><p>
           <i className="status-dot"/>
-          Online
+          {steamProfile?.onlineState || 'Online'}
         </p></div>
       </div>
       <div className="social-stats">
@@ -110,7 +173,7 @@ function SocialCardStack() {
     </article>
     <article className="social-card github-social" {...cardProps('github')}>
       <div className="social-card-head"><span><Github size={14}/> GITHUB</span><small>PUBLIC_API</small></div>
-      <div className="social-main"><img className="platform-avatar" src={avatars.github} alt="SakuraChiyo0v0 GitHub avatar" /><div><strong>SakuraChiyo0v0</strong><p>latest / {github.latest}</p></div></div>
+      <div className="social-main"><img className="platform-avatar" src={github.avatar || avatars.github} alt="SakuraChiyo0v0 GitHub avatar" /><div><strong>SakuraChiyo0v0</strong><p>latest / {github.latest}</p></div></div>
       <div className="social-stats"><span><small>REPOS</small>{github.repos}</span><span><small>FOLLOWERS</small>{github.followers}</span><div className="commit-dots" aria-label="近12周GitHub贡献热度">{contribDots.map((n,i)=><i key={i} data-level={n}/>)}</div></div>
       <a className="social-visit" href="https://github.com/SakuraChiyo0v0" target="_blank" rel="noreferrer" onClick={(e)=>e.stopPropagation()} aria-label="访问GitHub主页"><ExternalLink size={16}/></a>
     </article>
@@ -192,7 +255,7 @@ function Hero() {
         <a className="text-link" href="#work">VIEW MY WORK <ArrowUpRight size={15}/></a>
       </div>
     </div>
-    <div className="hero-visual hero-reveal"><SocialCardStack/></div>
+    <div className="hero-visual hero-reveal"><SocialCardStack /></div>
     <div className="terminal-bar hero-reveal"><span className="terminal-avatar">SC</span><span className="prompt">sakura@home:~$</span><span className="typed">take it easy --stay curious</span><span className="cursor" aria-hidden="true"/></div>
     <div className="scroll-note">SCROLL TO EXPLORE <ArrowDownRight size={14}/></div>
   </section>
@@ -282,5 +345,5 @@ export default function App() {
     return () => mm.revert()
   }, { scope: root })
 
-  return <div ref={root}><a className="skip-link" href="#about">跳到主要内容</a><Header/><MusicPlayer/><main><Hero/><Identity/><Projects/><LifeLog/><Memories/></main><Contact/></div>
+  return <div ref={root}><a className="skip-link" href="#about">跳到主要内容</a><Header/><MusicPlayer/><main><Hero /><Identity/><Projects/><LifeLog/><Memories/></main><Contact/></div>
 }

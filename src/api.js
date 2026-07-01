@@ -1,47 +1,89 @@
 /**
  * 真实数据 API 模块
- * - GitHub Events → 贡献周统计
+ * - 社交状态（GitHub + Steam + VRChat 统一端点）
+ * - VRChat CMS 操作（登录/2FA/登出等）
  */
-const GITHUB_USER = 'SakuraChiyo0v0'
+const API_BASE = '/api/vrchat'
+const SOCIAL_BASE = '/api/social'
 
-// ---- GitHub 贡献周统计 -------------------------------------------------
-export async function fetchGitHubContributions() {
+// ── 社交状态统一端点 ──────────────────────────────────────────────────
+
+/**
+ * 从后端获取所有平台数据（GitHub + Steam + VRChat）
+ * 后端每 60s 自动刷新一次
+ */
+export async function fetchSocialStatus() {
   try {
-    const res = await fetch(`https://api.github.com/users/${GITHUB_USER}/events/public?per_page=100`)
-    if (!res.ok) throw new Error(`GitHub API ${res.status}`)
-    const events = await res.json()
-
-    // 取最近 12 周，每周一为起点
-    const weeks = []
-    const now = new Date()
-    for (let i = 11; i >= 0; i--) {
-      const start = new Date(now)
-      start.setDate(start.getDate() - start.getDay() + 1 - i * 7)
-      start.setHours(0, 0, 0, 0)
-      const end = new Date(start)
-      end.setDate(end.getDate() + 6)
-      end.setHours(23, 59, 59, 999)
-      weeks.push({ start, end, count: 0 })
-    }
-
-    for (const event of events) {
-      if (event.type !== 'PushEvent') continue
-      const date = new Date(event.created_at)
-      for (const week of weeks) {
-        if (date >= week.start && date <= week.end) { week.count++; break }
-      }
-    }
-
-    // 0 次 → 0, 1-3 → 1, 4-6 → 2, 7-10 → 3, 11+ → 4
-    return weeks.map((w) => {
-      const c = w.count
-      if (c === 0) return 0
-      if (c <= 3) return 1
-      if (c <= 6) return 2
-      if (c <= 10) return 3
-      return 4
-    })
+    const res = await fetch(`${SOCIAL_BASE}/status`)
+    if (!res.ok) throw new Error(`Social API ${res.status}`)
+    return await res.json()
   } catch {
-    return []
+    return { github: {}, steam: {}, vrchat: { logged_in: false } }
   }
+}
+
+/**
+ * VRChat 登录 (用户名 + 密码)
+ */
+export async function vrchatLogin(username, password) {
+  const res = await fetch(`${API_BASE}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || 'Login failed')
+  return data
+}
+
+/**
+ * VRChat 2FA 验证
+ */
+export async function vrchatVerify2FA(code, method = 'totp') {
+  const res = await fetch(`${API_BASE}/2fa/verify?method=${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || '2FA verification failed')
+  return data
+}
+
+/**
+ * VRChat 登出
+ */
+export async function vrchatLogout() {
+  const res = await fetch(`${API_BASE}/logout`, { method: 'POST' })
+  return await res.json()
+}
+
+/**
+ * 获取当前用户完整信息
+ */
+export async function fetchVRChatMe() {
+  const res = await fetch(`${API_BASE}/me`)
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || 'Failed to fetch user')
+  return data
+}
+
+/**
+ * 获取好友列表
+ */
+export async function fetchVRChatFriends(offline = false) {
+  const res = await fetch(`${API_BASE}/friends?n=100&offline=${offline}`)
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || 'Failed to fetch friends')
+  return data
+}
+
+/**
+ * 获取通知
+ */
+export async function fetchVRChatNotifications() {
+  const res = await fetch(`${API_BASE}/notifications?n=20`)
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.detail || 'Failed to fetch notifications')
+  return data
 }

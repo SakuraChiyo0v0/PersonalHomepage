@@ -1,11 +1,15 @@
 import { useState } from 'react'
-import { LayoutDashboard, FolderOpen, ScrollText, LogOut, Sparkles, Plus, ChevronLeft } from 'lucide-react'
+import { LayoutDashboard, FolderOpen, ScrollText, LogOut, Sparkles, Plus, ChevronLeft, Gamepad2, RefreshCw } from 'lucide-react'
 import { Projects } from './Projects'
 import { LifeLog } from './LifeLog'
+import { VRChat } from './VRChat'
+import SocialSettings from './SocialSettings'
 
 const navItems = [
   { id: 'projects', label: '项目管理', icon: FolderOpen },
   { id: 'life_log', label: '生活日志', icon: ScrollText },
+  { id: 'vrchat', label: 'VRChat 连接', icon: Gamepad2 },
+  { id: 'social', label: '刷新设置', icon: RefreshCw },
 ]
 
 export function Layout({ token, onLogout }) {
@@ -18,6 +22,10 @@ export function Layout({ token, onLogout }) {
         return <Projects token={token} />
       case 'life_log':
         return <LifeLog token={token} />
+      case 'vrchat':
+        return <VRChat token={token} />
+      case 'social':
+        return <SocialSettings />
       default:
         return <Projects token={token} />
     }

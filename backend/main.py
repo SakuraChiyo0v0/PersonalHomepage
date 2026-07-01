@@ -2,10 +2,36 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from routes import users, projects, life_log
+from routes import users, projects, life_log, vrchat, social
+from contextlib import asynccontextmanager
+import asyncio
+import logging
 import os
 
-app = FastAPI(title="SakuraChiyo API", version="1.0.0")
+logger = logging.getLogger(__name__)
+
+
+# ── 后台统一数据刷新 ──
+
+async def _social_refresh_loop():
+    from routes.social import refresh_social_cache
+    await asyncio.sleep(5)
+    print("[Social] Auto-refresh started (check every 10s)")
+    while True:
+        try:
+            await refresh_social_cache()
+        except Exception as e:
+            print(f"[Social] Refresh error: {e}")
+        await asyncio.sleep(10)  # 每 10s 检查一次，各平台按各自间隔决定是否刷新
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    asyncio.create_task(_social_refresh_loop())
+    yield
+
+
+app = FastAPI(title="SakuraChiyo API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,6 +44,8 @@ app.add_middleware(
 app.include_router(users, prefix="/api/users", tags=["users"])
 app.include_router(projects, prefix="/api/projects", tags=["projects"])
 app.include_router(life_log, prefix="/api/life_log", tags=["life_log"])
+app.include_router(vrchat, prefix="/api/vrchat", tags=["vrchat"])
+app.include_router(social, prefix="/api/social", tags=["social"])
 
 
 @app.get("/api/status")
